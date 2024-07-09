@@ -15,6 +15,26 @@ body:
       placeholder: ex. 1212121
     validations:
       required: true
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: What priority for this bug
+      options:
+        - High
+        - Middle
+        - Low
+      default: 0
+    validations:
+      required: true
+  - type: textarea
+    id: what_expectation
+    attributes:
+      label: What expects to be happened?
+      description: Describe what expects to be happened in this commit version
+      placeholder: What do you want
+    validations:
+      required: true
   - type: textarea
     id: what
     attributes:
