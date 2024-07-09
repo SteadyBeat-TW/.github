@@ -1,7 +1,6 @@
----
 name: bug_report_template
 description: File a bug report
-title: [Bug]
+title: "[Bug]"
 body:
   - type: markdown
     attributes:
