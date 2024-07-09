@@ -1,6 +1,6 @@
 name: Feature Request Form
 description: File a form to request feature
-title: [New feature]
+title: "[New feature]"
 body:
   - type: markdown
     attributes:
@@ -20,8 +20,8 @@ body:
       label: Due Date
       description: Fill out the field with due date when requester wants to have new feature
       placeholder: ex. 2024/7/9. If no due date, please fill out with TBD.
-      validations:
-        required: true      
+    validations:
+      required: true      
   - type: input
     id: summary
     attributes:
