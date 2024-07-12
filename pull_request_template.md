@@ -3,7 +3,7 @@
 
 - [ ] Make sure that this PR is not a duplicate.
 - [ ] Make sure that a descriptive title is given to this PR.
-- [ ] Make sure that coding style follows coding style.
+- [ ] Make sure that coding style follows company coding style.
 - [ ] Make sure that self-review is performed.
 - [ ] Make sure that all warnings are fixed appropriately.
 - [ ] Make sure that the changes in this PR are verified, such as unit test and so on, rigorously.
