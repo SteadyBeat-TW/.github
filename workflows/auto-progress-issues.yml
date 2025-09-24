@@ -2,18 +2,21 @@ name: Auto Move Issues to In Progress
 
 on:
   schedule:
-    - cron: "0 1 * * *" # 每天台灣 09:00 執行
+    - cron: "0 1 * * *"   # 每天台灣 09:00 執行
   workflow_dispatch:
 
 permissions:
   contents: read
   issues: write
-  repository-projects: write   # ✅ org-level workflow 支援
+  projects: write   # ✅ org-level workflows 用這個
 
 jobs:
   move-to-inprogress:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
@@ -25,4 +28,4 @@ jobs:
       - name: Run automation script
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: node .github/workflows/move-to-inprogress.js
+        run: node move-to-inprogress.js
