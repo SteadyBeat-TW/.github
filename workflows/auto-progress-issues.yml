@@ -8,7 +8,7 @@ on:
 permissions:
   contents: read
   issues: write
-  projects: write   # ✅ org-level workflow 支援
+  repository-projects: write   # ✅ org-level workflow 支援
 
 jobs:
   move-to-inprogress:
