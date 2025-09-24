@@ -25,4 +25,4 @@ jobs:
       - name: Run automation script
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: node .github/.github/workflows/move-to-inprogress.js
+        run: node workflows/move-to-inprogress.js
