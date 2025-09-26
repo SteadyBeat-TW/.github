@@ -1,4 +1,4 @@
-name: Auto Move Issues to In Progress
+name: automation in progress
 
 on:
   schedule:
@@ -8,7 +8,7 @@ on:
 permissions:
   contents: read
   issues: write
-  projects: write   # ✅ org-level workflows 用這個
+  repository-projects: write   # ✅ org-level workflows 用這個
 
 jobs:
   move-to-inprogress:
@@ -28,4 +28,4 @@ jobs:
       - name: Run automation script
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: node move-to-inprogress.js
+        run: node Scripts/move-to-inprogress.js
