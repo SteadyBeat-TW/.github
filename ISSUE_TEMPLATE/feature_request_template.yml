@@ -1,40 +1,60 @@
 name: Feature Request Form
-description: File a form to request feature
-title: "[New feature]"
+description: 提出新功能需求並選擇是否自動建立分支
+title: "[Feature]: "
+labels: ["backlog"]
+assignees: ["你的GitHub帳號"]
+
 body:
   - type: markdown
     attributes:
       value: |
-        Please all necessary field to request new feature!
+        ### 填寫需求資訊
+        填寫此表單後，系統會自動標記為 backlog 並指派給開發負責人。
+
   - type: input
     id: requester
     attributes:
-      label: Requester
-      description: Fill out the field with initial requester
-      placeholder: ex. George
+      label: 提案人
+      description: 請填入您的名字
+      placeholder: 例如：George
     validations:
       required: true
-  - type: input
-    id: due_date
+
+  - type: dropdown
+    id: create_branch_option
     attributes:
-      label: Due Date
-      description: Fill out the field with due date when requester wants to have new feature
-      placeholder: ex. 2024/7/9. If no due date, please fill out with TBD.
+      label: 是否自動建立開發分支？
+      description: 若選擇「是」，系統將依據下方的摘要自動建立分支。
+      options:
+        - "是 (Yes)"
+        - "否 (No)"
     validations:
-      required: true      
+      required: true
+
   - type: input
     id: summary
     attributes:
-      label: Feature summary
-      description: Describe the summary for new feature
-      placeholder: ex. for friendly use
+      label: 功能摘要
+      description: 簡短英文描述，這會成為分支名稱 (例如：fix-audio-noise)
+      placeholder: 例如：add-voice-unlock-feature
     validations:
       required: true
+
   - type: textarea
     id: detail
     attributes:
-      label: Details
-      description: Describe the details, including what and why for new feature
-      placeholder: Develop GUI interface for friendly use
+      label: 需求細節與原因
+      description: 請描述為什麼需要這個功能，以及預期達成的目標。
+      placeholder: |
+        - 痛點：目前的...
+        - 目標：希望能達成...
     validations:
       required: true
+
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: 確認事項
+      options:
+        - label: 我已確認此需求不與現有功能重複
+          required: true
