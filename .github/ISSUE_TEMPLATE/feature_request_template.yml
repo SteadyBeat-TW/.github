@@ -1,17 +1,17 @@
 name: Feature Request Form
-description: File a form to request feature
-title: "[Feat]"
+description: Propose a new feature or improvement
+title: "[Feat]: "
 labels: ["backlog"]
 body:
   - type: markdown
     attributes:
       value: |
-        Please all necessary field to request new feature!
+        Please fill out all necessary fields to request a new feature!
   - type: input
     id: requester
     attributes:
       label: Requester
-      description: Fill out the field with initial requester
+      description: Who is the primary contact or stakeholder?
       placeholder: ex. George
     validations:
       required: true
@@ -19,23 +19,23 @@ body:
     id: due_date
     attributes:
       label: Due Date
-      description: Fill out the field with due date when requester wants to have new feature
-      placeholder: ex. 2024/7/9. If no due date, please fill out with TBD.
+      description: Target completion date (YYYY/MM/DD or TBD)
+      placeholder: ex. 2026/07/09
     validations:
       required: true
   - type: input
     id: summary
     attributes:
-      label: Feature summary
-      description: Describe the summary for new feature
-      placeholder: ex. for friendly use
+      label: Feature Summary
+      description: A concise summary of the request
+      placeholder: ex. Improve AIANC processing speed
     validations:
       required: true
   - type: textarea
     id: detail
     attributes:
-      label: Details
-      description: Describe the details, including what and why for new feature
-      placeholder: Develop GUI interface for friendly use
+      label: Details (What & Why)
+      description: Describe the feature in detail and the reason it is needed
+      placeholder: Provide context, use cases, or specific algorithm requirements
     validations:
       required: true

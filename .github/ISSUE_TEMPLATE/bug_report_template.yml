@@ -1,6 +1,6 @@
-name: bug_report_template
+name: Bug Report Form
 description: File a bug report
-title: "[Bug]"
+title: "[Bug]: "
 labels: ["backlog"]
 body:
   - type: markdown
