@@ -1,6 +1,7 @@
 name: bug_report_template
 description: File a bug report
 title: "[Bug]"
+labels: ["backlog"]
 body:
   - type: markdown
     attributes:
