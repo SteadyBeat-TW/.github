@@ -1,6 +1,6 @@
 name: Feature Request Form
 description: Propose a new feature or improvement
-title: "[Feat]: "
+title: "[Feat] "
 labels: ["backlog"]
 body:
   - type: markdown
