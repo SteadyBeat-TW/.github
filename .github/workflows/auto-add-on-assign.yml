@@ -9,6 +9,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/add-to-project@v1.0.2
+        env:
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
         with:
           project-url: https://github.com/orgs/SteadyBeat-TW/projects/25
           github-token: ${{ secrets.AUTOADDTOPROJECT }}
