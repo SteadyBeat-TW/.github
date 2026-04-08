@@ -1,7 +1,11 @@
-name: Auto add assigned issue to Project #25
+# This workflow automatically adds newly created issues to the organization's Project Board (Project #25).
+# By doing this, we ensure no issues are forgotten and all tasks are tracked centrally.
+
+name: Auto add new issue to Project #25
 
 on:
   issues:
+    # Triggering only on 'opened' guarantees it is added immediately to the board, without wasting Actions quota.
     types: [opened]
 
 jobs:
@@ -9,8 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/add-to-project@v1.0.2
-        env:
-          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
         with:
           project-url: https://github.com/orgs/SteadyBeat-TW/projects/25
+          # Requires a Personal Access Token (PAT) with repo and project write access 
           github-token: ${{ secrets.AUTOADDTOPROJECT }}
