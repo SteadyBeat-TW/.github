@@ -1,0 +1,339 @@
+name: Create Branch from Issue Comment
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  create-branch:
+    runs-on: ubuntu-latest
+
+    # 只在 issue 留言包含 /cib base:xxx 時執行（排除 PR 留言）
+    if: |
+      github.event.issue != null &&
+      !github.event.issue.pull_request &&
+      contains(github.event.comment.body, '/cib base:')
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check if issue already has a branch
+        id: check_issue_branch
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issueNumber = context.issue.number;
+
+            const { data: branches } = await github.rest.repos.listBranches({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              per_page: 100
+            });
+
+            const existing = branches.find(b =>
+              b.name.includes(`/${issueNumber}-`)
+            );
+
+            if (existing) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                body: `⚠️ 此 Issue 已經有關聯的 branch：\`${existing.name}\`，不允許重複建立。`
+              });
+              core.setOutput('already_exists', 'true');
+              core.setOutput('existing_branch', existing.name);
+            } else {
+              core.setOutput('already_exists', 'false');
+            }
+
+      - name: Set up Python
+        if: steps.check_issue_branch.outputs.already_exists == 'false'
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        if: steps.check_issue_branch.outputs.already_exists == 'false'
+        run: |
+          pip install googletrans==4.0.0rc1
+
+      - name: Parse comment and generate branch name
+        if: steps.check_issue_branch.outputs.already_exists == 'false'
+        id: branch_info
+        env:
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_LABELS: ${{ toJson(github.event.issue.labels) }}
+        run: |
+          python << 'EOF'
+          import os
+          import re
+          import json
+          from googletrans import Translator
+
+          comment_body = os.environ['COMMENT_BODY']
+          issue_title = os.environ['ISSUE_TITLE']
+          issue_number = os.environ['ISSUE_NUMBER']
+          issue_labels = json.loads(os.environ['ISSUE_LABELS'])
+
+          print(f"Comment: {comment_body}")
+          print(f"Issue title: {issue_title}")
+
+          # 解析 base branch（從留言中取得 /cib base:xxx）
+          match = re.search(r'/cib\s+base:(\S+)', comment_body)
+          if not match:
+            print("No valid /cib command found")
+            with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              f.write("valid=false\n")
+            exit(0)
+
+          base_branch = match.group(1)
+          print(f"Base branch: {base_branch}")
+
+          # 直接用第一個 label 名稱當 branch 前綴
+          label_names = [label['name'] for label in issue_labels]
+          print(f"Labels: {label_names}")
+
+          if label_names:
+            # 清理 label 名稱（空格換成連字符、移除特殊字元）
+            raw_prefix = label_names[0].lower()
+            branch_prefix = re.sub(r'[^a-z0-9-]', '-', raw_prefix)
+            branch_prefix = re.sub(r'-+', '-', branch_prefix).strip('-')
+          else:
+            branch_prefix = 'issue'
+
+          # 翻譯 issue title 成英文
+          translator = Translator()
+          try:
+            translated = translator.translate(issue_title, src='zh-tw', dest='en')
+            english_title = translated.text.lower()
+            print(f"Translated title: {english_title}")
+          except Exception as e:
+            print(f"Translation failed: {e}")
+            english_title = "issue-branch"
+
+          # 清理 branch 名稱
+          cleaned = re.sub(r'[^a-z0-9\s-]', '', english_title)
+          cleaned = re.sub(r'\s+', '-', cleaned.strip())
+          cleaned = re.sub(r'-+', '-', cleaned)
+          cleaned = cleaned.strip('-')
+          if len(cleaned) > 50:
+            cleaned = cleaned[:50].rstrip('-')
+          if len(cleaned) < 3:
+            cleaned = "new-issue"
+
+          branch_name = f"{branch_prefix}/{issue_number}-{cleaned}"
+          print(f"Final branch name: {branch_name}")
+
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+            f.write(f"valid=true\n")
+            f.write(f"branch_name={branch_name}\n")
+            f.write(f"base_branch={base_branch}\n")
+            f.write(f"branch_prefix={branch_prefix}\n")
+            f.write(f"translated_title={english_title}\n")
+          EOF
+
+      - name: Check if base branch exists
+        if: steps.check_issue_branch.outputs.already_exists == 'false' && steps.branch_info.outputs.valid == 'true'
+        id: check_base
+        run: |
+          BASE="${{ steps.branch_info.outputs.base_branch }}"
+          if git ls-remote --heads origin "$BASE" | grep -q "$BASE"; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Notify if base branch not found
+        if: steps.check_issue_branch.outputs.already_exists == 'false' && steps.branch_info.outputs.valid == 'true' && steps.check_base.outputs.exists == 'false'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `❌ Base branch \`${{ steps.branch_info.outputs.base_branch }}\` 不存在，請確認 branch 名稱後重試。`
+            });
+
+      - name: Check if new branch already exists
+        if: steps.check_issue_branch.outputs.already_exists == 'false' && steps.branch_info.outputs.valid == 'true' && steps.check_base.outputs.exists == 'true'
+        id: check_branch
+        run: |
+          BRANCH="${{ steps.branch_info.outputs.branch_name }}"
+          if git ls-remote --heads origin "$BRANCH" | grep -q "$BRANCH"; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create branch
+        if: |
+          steps.check_issue_branch.outputs.already_exists == 'false' &&
+          steps.branch_info.outputs.valid == 'true' &&
+          steps.check_base.outputs.exists == 'true' &&
+          steps.check_branch.outputs.exists == 'false'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          BASE="${{ steps.branch_info.outputs.base_branch }}"
+          BRANCH="${{ steps.branch_info.outputs.branch_name }}"
+
+          git fetch origin "$BASE"
+          git checkout -b "$BRANCH" "origin/$BASE"
+          git push origin "$BRANCH"
+
+          echo "✅ Created branch: $BRANCH from $BASE"
+
+      - name: Comment on issue
+        if: |
+          steps.check_issue_branch.outputs.already_exists == 'false' &&
+          steps.branch_info.outputs.valid == 'true' &&
+          steps.check_base.outputs.exists == 'true' &&
+          steps.check_branch.outputs.exists == 'false'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const branchName = '${{ steps.branch_info.outputs.branch_name }}';
+            const baseBranch = '${{ steps.branch_info.outputs.base_branch }}';
+            const branchPrefix = '${{ steps.branch_info.outputs.branch_prefix }}';
+            const translatedTitle = '${{ steps.branch_info.outputs.translated_title }}';
+            const emoji = '🌿';
+            const typeText = branchPrefix;
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `${emoji} **已自動建立 ${typeText} 開發分支**\n\n` +
+                    `📌 **Branch 名稱**: \`${branchName}\`\n` +
+                    `🌿 **Base Branch**: \`${baseBranch}\`\n` +
+                    `🔤 **翻譯標題**: ${translatedTitle}\n\n` +
+                    `請使用以下指令開始開發：\n` +
+                    `\`\`\`bash\n` +
+                    `git fetch origin\n` +
+                    `git checkout ${branchName}\n` +
+                    `\`\`\`\n\n` +
+                    `完成開發後，請建立 Pull Request 從 \`${branchName}\` 到 \`${baseBranch}\`，\n` +
+                    `並在描述中加入 \`Closes #${context.issue.number}\` 來自動關閉此 Issue。`
+            });
+
+      - name: Notify if branch already exists
+        if: |
+          steps.check_issue_branch.outputs.already_exists == 'false' &&
+          steps.branch_info.outputs.valid == 'true' &&
+          steps.check_base.outputs.exists == 'true' &&
+          steps.check_branch.outputs.exists == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `ℹ️ Branch \`${{ steps.branch_info.outputs.branch_name }}\` 已經存在，不需要重複建立。`
+            });
+
+  delete-branch:
+    runs-on: ubuntu-latest
+
+    # 只在 issue 被關閉時執行
+    if: github.event.action == 'closed'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Find and delete associated branch
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issueNumber = context.issue.number;
+
+            const { data: branches } = await github.rest.repos.listBranches({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              per_page: 100
+            });
+
+            const matchedBranches = branches.filter(branch =>
+              branch.name.includes(`/${issueNumber}-`)
+            );
+
+            if (matchedBranches.length === 0) {
+              console.log(`No branch found for issue #${issueNumber}`);
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                body: `ℹ️ 未找到與此 Issue 關聯的 branch，可能已經被刪除或尚未建立。`
+              });
+              return;
+            }
+
+            const deletedBranches = [];
+            const skippedBranches = [];
+
+            for (const branch of matchedBranches) {
+              try {
+                try {
+                  await github.rest.repos.getBranchProtection({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    branch: branch.name
+                  });
+                  skippedBranches.push(branch.name + ' (受保護)');
+                  continue;
+                } catch (error) {
+                  if (error.status !== 404) throw error;
+                }
+
+                const { data: compareData } = await github.rest.repos.compareCommitsWithBasehead({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  basehead: `HEAD...${branch.name}`
+                });
+
+                const isMerged = compareData.status === 'identical' || compareData.behind_by === 0;
+
+                if (isMerged) {
+                  await github.rest.git.deleteRef({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    ref: `heads/${branch.name}`
+                  });
+                  deletedBranches.push(branch.name);
+                } else {
+                  skippedBranches.push(branch.name + ' (未 merge)');
+                }
+              } catch (error) {
+                console.error(`Error processing branch ${branch.name}:`, error);
+              }
+            }
+
+            let message = '';
+            if (deletedBranches.length > 0) {
+              message += `🗑️ **已自動刪除以下 branch:**\n`;
+              deletedBranches.forEach(name => { message += `- \`${name}\` ✅\n`; });
+            }
+            if (skippedBranches.length > 0) {
+              message += `\n⚠️ **以下 branch 未刪除:**\n`;
+              skippedBranches.forEach(name => { message += `- \`${name}\`\n`; });
+              message += `\n請手動檢查這些 branches 是否需要保留。`;
+            }
+            if (message) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                body: message
+              });
+            }
